@@ -1,0 +1,119 @@
+:root {
+  /* Brutalist industrial black & white palette */
+  --bg-0: #090909;
+  --bg-1: #0d0d0d;
+  --bg-2: #121212;
+  --bg-3: #181818;
+  --bg-hover: #1d1d1d;
+  --line: #2b2b2b;
+  --line-soft: #1c1c1c;
+  --line-strong: #ffffff;
+  --fg: #f2f2f2;
+  --fg-dim: #a3a3a3;
+  --fg-faint: #5c5c5c;
+  --signal: #ffb000;
+  --danger: #ff4d4d;
+  --ok: #6dff8f;
+
+  --nav-h: 40px;
+  --status-h: 26px;
+  --activity-w: 48px;
+  --explorer-w: 260px;
+  --terminal-h: 220px;
+
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+  --num: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --fs-xxs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+
+  --lh: 1.5;
+  --line-h: 22px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--mono);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  color: var(--fg);
+  background: var(--bg-0);
+  -webkit-font-smoothing: none;
+  text-rendering: optimizeSpeed;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.35);
+  color: #000;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-2);
+  border-left: 1px solid var(--line);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+::-webkit-scrollbar-corner {
+  background: var(--bg-2);
+}
+
+button {
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  outline: none;
+  border: none;
+  background: none;
+  color: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Industrial crosshair corner marks */
+.corner {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+.corner-tl { top: 0; left: 0; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line-strong); }
+.corner-tr { top: 0; right: 0; border-top: 1px solid var(--line-strong); border-right: 1px solid var(--line-strong); }
+.corner-bl { bottom: 0; left: 0; border-bottom: 1px solid var(--line-strong); border-left: 1px solid var(--line-strong); }
+.corner-br { bottom: 0; right: 0; border-bottom: 1px solid var(--line-strong); border-right: 1px solid var(--line-strong); }
