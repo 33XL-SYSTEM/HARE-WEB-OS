@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { AppId } from './wm/WindowManager';
-import { FilesIcon, CodeIcon, TerminalIcon, SettingsIcon, ChartIcon, BrowserIcon, StoreIcon, MailIcon, CalendarIcon, CalculatorIcon, NotesIcon, MusicIcon, VideoIcon, PhotosIcon, CameraIcon, MapsIcon, WeatherIcon, ClockIcon, ContactsIcon, MessagesIcon, TasksIcon, PodcastsIcon, WalletIcon, HealthIcon, NewsIcon, RecorderIcon, TranslateIcon, DictionaryIcon, MeasureIcon, FitnessIcon, BooksIcon, CompassIcon, PasswordsIcon, HomeIcon, ScannerIcon, PaintIcon } from './icons';
+import { FilesIcon, CodeIcon, TerminalIcon, SettingsIcon, ChartIcon, BrowserIcon, StoreIcon, MailIcon, CalendarIcon, CalculatorIcon, NotesIcon, MusicIcon, VideoIcon, PhotosIcon, CameraIcon, MapsIcon, WeatherIcon, ClockIcon, ContactsIcon, MessagesIcon, TasksIcon, PodcastsIcon, WalletIcon, HealthIcon, NewsIcon, RecorderIcon, TranslateIcon, DictionaryIcon, MeasureIcon, FitnessIcon, BooksIcon, CompassIcon, PasswordsIcon, HomeIcon, ScannerIcon, PaintIcon, TrymonIcon } from './icons';
 
 export interface AppMeta {
   id: AppId;
@@ -45,4 +45,5 @@ export const APP_REGISTRY: AppMeta[] = [
   { id: 'home', name: 'Home', icon: <HomeIcon width={20} height={20} /> },
   { id: 'scanner', name: 'Scanner', icon: <ScannerIcon width={20} height={20} /> },
   { id: 'paint', name: 'Paint', icon: <PaintIcon width={20} height={20} /> },
+  { id: 'trymon', name: 'Trymon OS', icon: <TrymonIcon width={20} height={20} /> },
 ];

@@ -42,6 +42,7 @@ import { PasswordsApp } from './apps/PasswordsApp';
 import { HomeApp } from './apps/HomeApp';
 import { ScannerApp } from './apps/ScannerApp';
 import { PaintApp } from './apps/PaintApp';
+import { TrymonApp } from './apps/TrymonApp';
 
 function appIcon(app: AppId) {
   return APP_REGISTRY.find((a) => a.id === app)?.icon ?? null;
@@ -122,6 +123,8 @@ function WindowContent({ win }: { win: WindowState }) {
       return <ScannerApp />;
     case 'paint':
       return <PaintApp />;
+    case 'trymon':
+      return <TrymonApp />;
     default:
       return null;
   }
@@ -193,9 +196,7 @@ function Desktop() {
               ))}
               {windows.filter(w => w.workspace === idx).length === 0 && (
                 <div className="desktop-empty">
-                  <span className="desktop-empty-mark">▮▮</span>
-                  <span className="desktop-empty-title">HARE-OS {idx === totalWorkspaces - 1 && "(New Workspace)"}</span>
-                  <span className="desktop-empty-hint">CLICK 'ACTIVITIES' TO OPEN APPLICATIONS</span>
+                  <img src="/icon.png" alt="Hare Mascot" className="desktop-empty-mascot" />
                 </div>
               )}
             </div>

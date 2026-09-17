@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useWindowManager } from '../wm/WindowManager';
 import { APP_REGISTRY } from '../appRegistry';
-import { CloseIcon } from '../icons';
+import { SearchIcon } from '../icons';
 
 export function Overview() {
   const { 
@@ -37,9 +37,9 @@ export function Overview() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <button className="overview-close" onClick={close}>
-            <CloseIcon width={16} height={16} />
-          </button>
+          <div className="overview-search-icon">
+            <SearchIcon width={18} height={18} />
+          </div>
         </div>
 
         {appGridOpen && (

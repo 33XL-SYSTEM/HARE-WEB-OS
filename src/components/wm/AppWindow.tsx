@@ -43,6 +43,7 @@ export function AppWindow({ win, children, icon }: AppWindowProps) {
         startY: e.clientY,
         startRect: { x: win.x, y: win.y, w: win.w, h: win.h },
       };
+      document.body.classList.add('wm-dragging');
     },
     [moveToFront, win.id, win.maximized, win.x, win.y, win.w, win.h],
   );
@@ -60,6 +61,7 @@ export function AppWindow({ win, children, icon }: AppWindowProps) {
         startY: e.clientY,
         startRect: { x: win.x, y: win.y, w: win.w, h: win.h },
       };
+      document.body.classList.add('wm-dragging');
     },
     [moveToFront, win.id, win.maximized, win.x, win.y, win.w, win.h],
   );
@@ -113,6 +115,7 @@ export function AppWindow({ win, children, icon }: AppWindowProps) {
 
     const onUp = () => {
       dragRef.current = null;
+      document.body.classList.remove('wm-dragging');
     };
 
     window.addEventListener('mousemove', onMove);

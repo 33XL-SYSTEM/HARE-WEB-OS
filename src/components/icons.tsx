@@ -451,3 +451,10 @@ export const PaintIcon = (props: IconProps) => (
     <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
   </svg>
 );
+
+export const TrymonIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <polygon points="12 2 22 8.5 22 21.5 12 28 2 21.5 2 8.5"/>
+    <circle cx="12" cy="15" r="4"/>
+  </svg>
+);

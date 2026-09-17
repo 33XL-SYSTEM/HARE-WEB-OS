@@ -8,7 +8,10 @@ import {
 } from 'react';
 import { kernel } from '../../kernel/HareBridge';
 
-export type AppId = 'files' | 'code' | 'terminal' | 'settings' | 'monitor' | 'browser' | 'store' | 'mail' | 'calendar' | 'calculator' | 'notes' | 'music' | 'video' | 'photos' | 'camera' | 'maps' | 'weather' | 'clock' | 'contacts' | 'messages' | 'tasks' | 'podcasts' | 'wallet' | 'health' | 'news' | 'recorder' | 'translate' | 'dictionary' | 'measure' | 'fitness' | 'books' | 'compass' | 'passwords' | 'home' | 'scanner' | 'paint';
+export type AppId = 'files' | 'code' | 'terminal' | 'settings' | 'monitor' | 'browser' | 'store' | 'mail' | 'calendar' | 'calculator' | 'notes' | 'music' | 'video' | 'photos' | 'camera' | 'maps' | 'weather' | 'clock' | 'contacts' | 'messages' | 'tasks' | 'podcasts' | 'wallet' | 'health' | 'news' | 'recorder' | 'translate' | 'dictionary' | 'measure' | 'fitness' | 'books' | 'compass' | 'passwords'  | 'home'
+  | 'scanner'
+  | 'paint'
+  | 'trymon';
 
 export interface WindowRect {
   x: number;
@@ -99,6 +102,7 @@ const DEFAULT_GEOM: Record<AppId, WindowRect> = {
   home: { x: 200, y: 150, w: 600, h: 400 },
   scanner: { x: 200, y: 150, w: 600, h: 400 },
   paint: { x: 200, y: 150, w: 600, h: 400 },
+  trymon: { x: 100, y: 100, w: 800, h: 500 },
 };
 
 export function WindowManagerProvider({ children }: { children: ReactNode }) {
@@ -300,5 +304,7 @@ function defaultTitle(app: AppId): string {
     case 'home': return 'HOME';
     case 'scanner': return 'SCANNER';
     case 'paint': return 'PAINT';
+    case 'trymon': return 'Trymon OS';
+    default: return 'Application';
   }
 }

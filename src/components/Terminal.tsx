@@ -20,8 +20,15 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
   const [history, setHistory] = useState<HistoryLine[]>([]);
   const [input, setInput] = useState('');
   const [cwd, setCwd] = useState(kernel.cwd);
+  const [activePid, setActivePid] = useState<number | null>(null);
+  
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
+  const pidRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    pidRef.current = activePid;
+  }, [activePid]);
 
   useEffect(() => {
     if (!ready) return;
@@ -34,6 +41,31 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
   useEffect(() => {
     onCwdChange?.(cwd);
   }, [cwd, onCwdChange]);
+
+  // Handle kernel IPC events for the terminal
+  useEffect(() => {
+    if (!ready) return;
+    const unsub = kernel.scheduler.onEvent((eventPid, type) => {
+      if (type === 'io') {
+        const stdout = kernel.scheduler.readStdout(eventPid);
+        const stderr = kernel.scheduler.readStderr(eventPid);
+        
+        if (stdout.length > 0 || stderr.length > 0) {
+          const lines = [...stdout, ...stderr].flatMap(l => l.split('\n'));
+          push(lines, false, kernel.cwd);
+        }
+      } else if (type === 'kill' || type === 'state_change') {
+        const p = kernel.scheduler.get(eventPid);
+        if (!p || p.state === 'ZOMBIE') {
+          if (pidRef.current === eventPid) {
+            setActivePid(null);
+            setCwd(kernel.cwd);
+          }
+        }
+      }
+    });
+    return () => unsub();
+  }, [ready]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,8 +89,36 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
     ]);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault();
+      if (activePid !== null) {
+        push([`^C`], false);
+        kernel.scheduler.signal(activePid, 'SIGINT');
+      } else {
+        push([`${cwd}$ ^C`], false);
+        setInput('');
+      }
+      return;
+    }
+    
+    if (e.ctrlKey && e.key === 'l') {
+      e.preventDefault();
+      setHistory([]);
+      return;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (activePid !== null) {
+      // Send stdin
+      kernel.scheduler.writeStdin(activePid, input + '\n');
+      push([input], false); // echo input
+      setInput('');
+      return;
+    }
+
     const raw = input.trim();
     if (!raw) return;
     setInput('');
@@ -87,17 +147,9 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
     }
 
     try {
-      const res = await kernel.executeCommand(raw);
-      if (res.cwd) {
-        setCwd(res.cwd);
-      }
-      if (res.text) {
-        push(
-          res.text.split('\n'),
-          false,
-          res.cwd ?? cwd,
-          res.engine && res.engine !== 'js' ? res.engine : undefined,
-        );
+      const pid = kernel.spawnProcess(raw);
+      if (pid > 0) {
+        setActivePid(pid);
       }
     } catch (err) {
       push([err instanceof Error ? err.message : String(err)], false);
@@ -134,9 +186,11 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
             className="terminal-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             autoFocus
             spellCheck={false}
             autoComplete="off"
+            placeholder={activePid !== null ? 'process running...' : ''}
           />
         </form>
       )}

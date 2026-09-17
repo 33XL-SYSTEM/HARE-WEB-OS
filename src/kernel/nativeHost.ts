@@ -39,7 +39,7 @@ interface NodeFs {
 
 async function loadBuiltin(name: string): Promise<unknown> {
   const dynamicKey = `node:${name}`;
-  const mod = (await import(dynamicKey)) as Record<string, unknown>;
+  const mod = (await import(/* @vite-ignore */ dynamicKey)) as Record<string, unknown>;
   return mod.default ?? mod;
 }
 

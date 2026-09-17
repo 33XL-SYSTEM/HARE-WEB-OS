@@ -384,147 +384,217 @@ class HareBridge {
     this.fs.rename(full, newName);
   }
 
-  async executeCommand(raw: string): Promise<CommandResult> {
+  spawnProcess(raw: string, overrideCwd?: string): number {
     if (!this.isReady) throw new Error('Kernel not loaded');
 
     const cmd = raw.trim();
-    if (!cmd) return { text: '' };
+    if (!cmd) return -1;
 
     const [head, ...rest] = cmd.split(/\s+/);
     const arg = rest.join(' ').trim();
     const name = head!.toLowerCase();
+    
+    // Spawn the process via scheduler
+    const cwd = overrideCwd || this.currentDir;
+    const process = this.scheduler.spawn(name, cwd, null, rest, {});
+    const pid = process.pid;
 
-    for (const host of this.hostChain) {
-      if (!host.available || !host.supports(name)) continue;
-      try {
-        const out = await host.execute(cmd);
-        if (out !== null && out !== undefined) {
-          return { text: out, engine: host.id };
+    // Helper to write to stdout and kill
+    const end = (text: string, code: number = 0, chdir?: string) => {
+      if (text) this.scheduler.writeStdout(pid, text);
+      if (chdir) this.currentDir = chdir; // Update global cwd if needed
+      this.scheduler.kill(pid, code);
+    };
+
+    // Evaluate async
+    setTimeout(async () => {
+      // Check if process was killed early
+      if (!this.scheduler.get(pid)) return;
+
+      for (const host of this.hostChain) {
+        if (!host.available || !host.supports(name)) continue;
+        try {
+          const out = await host.execute(cmd);
+          if (out !== null && out !== undefined) {
+            end(out);
+            return;
+          }
+        } catch (err) {
+          console.warn(`[HARE] ${host.id} host failed for '${cmd}'`, err);
         }
-      } catch (err) {
-        console.warn(`[HARE] ${host.id} host failed for '${cmd}'`, err);
       }
-    }
 
-    switch (name) {
-      case 'uname':
-        return { text: `HARE-OS kernel ${this.version} (JS fallback)` };
+      switch (name) {
+        case 'sleep': {
+          const ms = (parseInt(arg, 10) || 1) * 1000;
+          this.scheduler.writeStdout(pid, `Sleeping for ${ms/1000}s...`);
+          await new Promise(r => setTimeout(r, ms));
+          if (this.scheduler.get(pid)) end('');
+          return;
+        }
+        case 'uname':
+          end(`HARE-OS kernel ${this.version} (JS fallback)`);
+          return;
       case 'ps': {
         const procs = this.scheduler.list();
-        if (procs.length === 0) return { text: 'PID   STATE     MEM      CMD' };
+        if (procs.length === 0) {
+          end('PID   PPID  STATE     MEM      CMD');
+          return;
+        }
         
-        const lines = ['PID   STATE     MEM      CMD'];
+        const lines = ['PID   PPID  STATE     MEM      CMD'];
         for (const p of procs) {
           const mem = (p.memory / 1024).toFixed(1) + 'M';
-          lines.push(`${p.pid.toString().padEnd(5)} ${p.state.padEnd(9)} ${mem.padEnd(8)} ${p.name}`);
+          const ppid = p.ppid !== null ? p.ppid.toString() : '-';
+          lines.push(`${p.pid.toString().padEnd(5)} ${ppid.padEnd(5)} ${p.state.padEnd(9)} ${mem.padEnd(8)} ${p.name}`);
         }
-        return { text: lines.join('\n') };
+        end(lines.join('\n'));
+        return;
       }
       case 'kill': {
-        if (!arg) return { text: 'usage: kill <pid>' };
-        const pid = parseInt(arg, 10);
-        if (isNaN(pid)) return { text: `kill: invalid pid: ${arg}` };
+        if (!arg) {
+          end('usage: kill [-SIGNAL] <pid>', 1);
+          return;
+        }
         
-        if (this.scheduler.kill(pid)) {
-          return { text: `process ${pid} terminated` };
+        let sig: any = 'SIGTERM';
+        let targetPidStr = arg;
+        
+        if (arg.startsWith('-')) {
+          const parts = arg.split(' ');
+          const rawSig = parts[0].substring(1).toUpperCase();
+          if (rawSig === '9') sig = 'SIGKILL';
+          else if (!rawSig.startsWith('SIG')) sig = `SIG${rawSig}`;
+          else sig = rawSig;
+          
+          targetPidStr = parts.slice(1).join(' ');
+        }
+
+        const pid = parseInt(targetPidStr, 10);
+        if (isNaN(pid)) return { text: `kill: invalid pid: ${targetPidStr}` };
+        
+        if (this.scheduler.signal(pid, sig)) {
+          end(`process ${pid} signaled with ${sig}`);
         } else {
-          return { text: `kill: no such process: ${pid}` };
+          end(`kill: no such process: ${pid}`, 1);
         }
+        return;
       }
-      case 'date': {
-        const d = new Date();
-        return { text: d.toISOString() };
-      }
+      case 'date':
+        end(new Date().toISOString());
+        return;
       case 'pwd':
-        return { text: this.currentDir };
+        end(this.currentDir);
+        return;
       case 'echo':
-        return { text: arg };
+        end(arg);
+        return;
       case 'whoami':
-        return { text: 'hare_admin' };
+        end('hare_admin');
+        return;
       case 'uptime':
-        return { text: `up ${this.uptime}` };
+        end(`up ${this.uptime}`);
+        return;
       case 'version':
-        return { text: `HARE-OS ${this.version}` };
+        end(`HARE-OS ${this.version}`);
+        return;
       case 'ls':
-      case 'dir':
-        if (!this.fs.isDir(this.resolvePath(arg || '.'))) {
-          return { text: `NO_SUCH_DIRECTORY: ${arg || this.currentDir}` };
+      case 'dir': {
+        const targetDir = arg || this.currentDir;
+        if (!this.fs.isDir(this.resolvePath(targetDir))) {
+          end(`NO_SUCH_DIRECTORY: ${targetDir}`, 1);
+        } else {
+          end(this.listDir(targetDir).map((n) => (n.type === 'dir' ? n.name + '/' : n.name)).join('    '));
         }
-        return {
-          text: this.listDir(arg || '.')
-            .map((n) => (n.type === 'dir' ? n.name + '/' : n.name))
-            .join('    '),
-        };
-      case 'tree': {
-        const target = this.resolvePath(arg || '.');
-        const lines = this.fs.tree(target);
-        return { text: lines.join('\n') || '.' };
+        return;
       }
+      case 'tree':
+        end(this.fs.tree(this.resolvePath(arg || '.')).join('\n') || '.');
+        return;
       case 'cd': {
         if (!arg) {
-          this.currentDir = WORKSPACE;
-          return { text: '', cwd: this.currentDir };
+          end('', 0, WORKSPACE);
+          return;
         }
         const target = this.resolvePath(arg);
         if (this.fs.isDir(target)) {
-          this.currentDir = target;
-          return { text: '', cwd: target };
+          end('', 0, target);
+        } else {
+          end(`NO_SUCH_DIRECTORY: ${arg}`, 1);
         }
-        return { text: `NO_SUCH_DIRECTORY: ${arg}` };
+        return;
       }
-      case 'cat': {
-        if (!arg) return { text: 'usage: cat <file>' };
-        if (!this.fs.exists(arg)) return { text: `NO_SUCH_FILE: ${arg}` };
-        if (this.fs.isDir(arg)) return { text: `IS_A_DIRECTORY: ${arg}` };
-        return { text: this.fs.readFile(arg) };
-      }
+      case 'cat':
+        if (!arg) end('usage: cat <file>', 1);
+        else if (!this.fs.exists(arg)) end(`NO_SUCH_FILE: ${arg}`, 1);
+        else if (this.fs.isDir(arg)) end(`IS_A_DIRECTORY: ${arg}`, 1);
+        else end(this.fs.readFile(arg));
+        return;
       case 'head': {
-        if (!arg) return { text: 'usage: head <file> [n]' };
+        if (!arg) {
+          end('usage: head <file> [n]', 1);
+          return;
+        }
         const [fileArg, numArg] = arg.split(/\s+/);
         const n = numArg ? parseInt(numArg, 10) : 10;
-        if (!this.fs.exists(fileArg!)) return { text: `NO_SUCH_FILE: ${fileArg}` };
-        const lines = this.fs.readFile(fileArg!).split('\n').slice(0, n);
-        return { text: lines.join('\n') };
+        if (!this.fs.exists(fileArg!)) {
+          end(`NO_SUCH_FILE: ${fileArg}`, 1);
+        } else {
+          const lines = this.fs.readFile(fileArg!).split('\n').slice(0, n);
+          end(lines.join('\n'));
+        }
+        return;
       }
-      case 'touch': {
-        if (!arg) return { text: 'usage: touch <file>' };
-        if (!this.fs.exists(arg)) this.createFile(arg, '');
-        return { text: `touched ${basename(this.resolvePath(arg))}` };
-      }
+      case 'touch':
+        if (!arg) end('usage: touch <file>', 1);
+        else {
+          if (!this.fs.exists(arg)) this.createFile(arg, '');
+          end(`touched ${basename(this.resolvePath(arg))}`);
+        }
+        return;
       case 'mkdir':
-        if (!arg) return { text: 'usage: mkdir <dir>' };
-        this.createDir(arg);
-        return { text: `created ${basename(this.resolvePath(arg))}` };
+        if (!arg) end('usage: mkdir <dir>', 1);
+        else {
+          this.createDir(arg);
+          end(`created ${basename(this.resolvePath(arg))}`);
+        }
+        return;
       case 'rm':
-        if (!arg) return { text: 'usage: rm <path>' };
-        this.deletePath(arg);
-        return { text: `removed ${basename(this.resolvePath(arg))}` };
-      case 'find': {
-        const results = this.fs.find(arg || '');
-        return { text: results.map((n) => n.path).join('\n') || '(no results)' };
-      }
+        if (!arg) end('usage: rm <path>', 1);
+        else {
+          this.deletePath(arg);
+          end(`removed ${basename(this.resolvePath(arg))}`);
+        }
+        return;
+      case 'find':
+        end(this.fs.find(arg || '').map((n) => n.path).join('\n') || '(no results)');
+        return;
       case 'stat': {
         const target = this.resolvePath(arg || '.');
         const node = this.fs.get(target);
-        if (!node) return { text: `NO_SUCH_PATH: ${arg}` };
-        const size = node.type === 'dir' ? node.children.length : node.content.length;
-        return {
-          text: `[${node.type}] ${node.path}\n  size: ${size}\n  parent: ${parentPath(node.path)}`,
-        };
+        if (!node) end(`NO_SUCH_PATH: ${arg}`, 1);
+        else {
+          const size = node.type === 'dir' ? node.children.length : node.content.length;
+          end(`[${node.type}] ${node.path}\n  size: ${size}\n  parent: ${parentPath(node.path)}`);
+        }
+        return;
       }
       case 'help':
-        return {
-          text: [
-            `Hybrid kernel engines: ${this.engines.join(' + ')}`,
-            'Available commands:',
-            '  version, uname, ident, whoami, echo, fnv (core)',
-            '  date, uptime, ls, tree, cd, pwd, cat, head, touch, mkdir, rm, find, stat',
-            '  ps, kill, open, edit, help, clear',
-          ].join('\n'),
-        };
+        end([
+          `Hybrid kernel engines: ${this.engines.join(' + ')}`,
+          'Available commands:',
+          '  version, uname, ident, whoami, echo, fnv (core)',
+          '  date, uptime, ls, tree, cd, pwd, cat, head, touch, mkdir, rm, find, stat',
+          '  ps, kill, open, edit, help, sleep, clear',
+        ].join('\n'));
+        return;
       default:
-        return { text: `command not found: ${head}` };
-    }
+        end(`command not found: ${head}`, 127);
+        return;
+      }
+    }, 0); // end of setTimeout
+
+    return pid;
   }
 }
 
