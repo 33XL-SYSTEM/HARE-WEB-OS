@@ -4,10 +4,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run kernel:all",
     "dev": "vite",
+    "prebuild": "npm run kernel:all",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "kernel:build": "./scripts/build-kernel.sh",
+    "kernel:wasm": "./scripts/build-wasm.sh",
+    "kernel:all": "./scripts/build-kernel.sh && ./scripts/build-wasm.sh"
   },
   "dependencies": {
     "react": "^19.2.8",

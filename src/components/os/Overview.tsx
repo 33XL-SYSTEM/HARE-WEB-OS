@@ -4,7 +4,13 @@ import { APP_REGISTRY } from '../appRegistry';
 import { CloseIcon } from '../icons';
 
 export function Overview() {
-  const { windows, activitiesOpen, setActivities, open, focus } = useWindowManager();
+  const { 
+    activitiesOpen, 
+    setActivities, 
+    open, 
+    appGridOpen,
+    setAppGridOpen
+  } = useWindowManager();
   const [query, setQuery] = useState('');
 
   const filteredApps = useMemo(() => {
@@ -15,10 +21,13 @@ export function Overview() {
 
   if (!activitiesOpen) return null;
 
-  const close = () => setActivities(false);
+  const close = () => {
+    setActivities(false);
+    setAppGridOpen(false);
+  };
 
   return (
-    <div className="overview" onClick={close}>
+    <div className={`overview ${appGridOpen ? 'app-grid-open' : ''}`} onClick={close}>
       <div className="overview-inner" onClick={(e) => e.stopPropagation()}>
         <div className="overview-search-row">
           <input
@@ -33,47 +42,27 @@ export function Overview() {
           </button>
         </div>
 
-        {windows.length > 0 && (
+        {appGridOpen && (
           <div className="overview-section">
-            <div className="overview-label">OPEN WINDOWS</div>
-            <div className="overview-windowgrid">
-              {windows.map((w) => (
+            <div className="overview-label">APPLICATIONS</div>
+            <div className="overview-appgrid">
+              {filteredApps.map((a) => (
                 <button
-                  key={w.id}
-                  className="overview-thumb"
+                  key={a.id}
+                  className="overview-app"
                   onClick={() => {
-                    focus(w.id);
+                    open(a.id);
+                    setAppGridOpen(false);
                     close();
                   }}
                 >
-                  <span className="overview-thumb-title">
-                    {w.app.toUpperCase()} · {w.title}
-                  </span>
-                  <span className="overview-thumb-rect">▭</span>
+                  <span className="overview-app-icon">{a.icon}</span>
+                  <span className="overview-app-name">{a.name}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
-
-        <div className="overview-section">
-          <div className="overview-label">APPLICATIONS</div>
-          <div className="overview-appgrid">
-            {filteredApps.map((a) => (
-              <button
-                key={a.id}
-                className="overview-app"
-                onClick={() => {
-                  open(a.id);
-                  close();
-                }}
-              >
-                <span className="overview-app-icon">{a.icon}</span>
-                <span className="overview-app-name">{a.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

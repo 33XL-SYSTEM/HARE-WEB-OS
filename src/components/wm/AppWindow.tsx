@@ -21,7 +21,7 @@ interface DragState {
 }
 
 export function AppWindow({ win, children, icon }: AppWindowProps) {
-  const { focusedId, moveToFront, close, minimize, toggleMaximize, updateRect } = useWindowManager();
+  const { focusedId, moveToFront, close, minimize, toggleMaximize, updateRect, activitiesOpen } = useWindowManager();
   const dragRef = useRef<DragState | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const winRef = useRef(win);
@@ -180,6 +180,21 @@ export function AppWindow({ win, children, icon }: AppWindowProps) {
             />
           ))}
         </>
+      )}
+
+      {activitiesOpen && (
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', win.id);
+            e.dataTransfer.effectAllowed = 'move';
+            // Optional: set drag image to be the window frame itself
+            if (frameRef.current) {
+              e.dataTransfer.setDragImage(frameRef.current, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+            }
+          }}
+          style={{ position: 'absolute', inset: 0, zIndex: 9999, cursor: 'grab' }}
+        />
       )}
     </div>
   );

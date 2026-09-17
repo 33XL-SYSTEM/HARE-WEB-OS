@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# local kernel build artifacts (regenerate with npm run kernel:build)
+bin
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

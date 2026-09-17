@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { kernel } from '../kernel/HareBridge';
+import type { HostEngineId } from '../kernel/hosts';
 
 interface HistoryLine {
   id: number;
   content: string;
   isCommand: boolean;
   cwd?: string;
+  engine?: HostEngineId;
 }
 
 interface TerminalProps {
@@ -37,7 +39,12 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history]);
 
-  const push = (lines: string[], isCommand: boolean, commandCwd = cwd) => {
+  const push = (
+    lines: string[],
+    isCommand: boolean,
+    commandCwd = cwd,
+    engine?: HostEngineId,
+  ) => {
     setHistory((prev) => [
       ...prev,
       ...lines.map((content) => ({
@@ -45,6 +52,7 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
         content,
         isCommand,
         cwd: commandCwd,
+        engine,
       })),
     ]);
   };
@@ -84,7 +92,12 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
         setCwd(res.cwd);
       }
       if (res.text) {
-        push(res.text.split('\n'), false, res.cwd ?? cwd);
+        push(
+          res.text.split('\n'),
+          false,
+          res.cwd ?? cwd,
+          res.engine && res.engine !== 'js' ? res.engine : undefined,
+        );
       }
     } catch (err) {
       push([err instanceof Error ? err.message : String(err)], false);
@@ -107,6 +120,7 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
             )}
             {line.isCommand && <span className="prompt-sign">$</span>}
             <span className={line.isCommand ? 'terminal-cmd' : 'terminal-out'}>{line.content}</span>
+            {line.engine && <span className="terminal-engine">[{line.engine}]</span>}
           </div>
         ))}
         <div ref={endRef} />

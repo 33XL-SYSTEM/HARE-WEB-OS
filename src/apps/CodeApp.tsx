@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { kernel } from '../kernel/HareBridge';
 import { EditorPane } from '../components/EditorPane';
 import { TabBar, type TabInfo } from '../components/TabBar';
@@ -29,24 +29,23 @@ export function CodeApp({ initialPath, openedPath }: CodeAppProps) {
   });
   const [activePath, setActivePath] = useState<string | null>(initialPath ?? null);
   const [cursor, setCursor] = useState<TextPosition>({ line: 0, col: 0 });
+  const [prevOpenedPath, setPrevOpenedPath] = useState<string | undefined>(openedPath);
 
-  useEffect(() => {
-    if (!openedPath) return;
-    setTabs((prev) => {
-      if (prev.some((t) => t.path === openedPath)) {
-        setActivePath(openedPath);
-        return prev;
-      }
-      let content = '';
-      try {
-        content = kernel.readFile(openedPath);
-      } catch {
-        content = '';
+  if (openedPath !== prevOpenedPath) {
+    setPrevOpenedPath(openedPath);
+    if (openedPath) {
+      if (!tabs.some((t) => t.path === openedPath)) {
+        let content = '';
+        try {
+          content = kernel.readFile(openedPath);
+        } catch {
+          content = '';
+        }
+        setTabs((prev) => [...prev, { path: openedPath, content, dirty: false }]);
       }
       setActivePath(openedPath);
-      return [...prev, { path: openedPath, content, dirty: false }];
-    });
-  }, [openedPath]);
+    }
+  }
 
   const updateContent = useCallback((path: string, content: string) => {
     setTabs((prev) =>

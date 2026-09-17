@@ -4,8 +4,8 @@ import { UserIcon, InfoIcon, CpuIcon, LayoutIcon, DiskIcon } from '../components
 export function SettingsApp() {
   const rows = [
     { icon: <InfoIcon width={15} height={15} />, label: 'KERNEL', value: `HARE ${kernel.versionStr}` },
-    { icon: <CpuIcon width={15} height={15} />, label: 'PLATFORM', value: 'WebAssembly (mock)' },
-    { icon: <LayoutIcon width={15} height={15} />, label: 'DESKTOP', value: 'GNOME-like / brutalist' },
+    { icon: <CpuIcon width={15} height={15} />, label: 'PLATFORM', value: kernel.platformLabel },
+    { icon: <LayoutIcon width={15} height={15} />, label: 'ENGINES', value: kernel.engines.join(' + ') },
     { icon: <DiskIcon width={15} height={15} />, label: 'ROOT FS', value: '/workspace' },
     { icon: <UserIcon width={15} height={15} />, label: 'USER', value: 'hare_admin' },
   ];

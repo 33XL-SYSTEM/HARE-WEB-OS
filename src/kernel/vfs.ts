@@ -71,6 +71,9 @@ export class VirtualFS {
   private root: FSNode;
   private index = new Map<string, FSNode>();
   private versionCounter = 0;
+  private saveTimeout: number | null = null;
+  private dbName = 'hare-vfs';
+  private storeName = 'files';
 
   constructor(seed: FSNodeInput[] = [], rootName = '/') {
     this.root = {
@@ -133,6 +136,7 @@ export class VirtualFS {
       if (node.type === 'dir') throw new Error(`IS_A_DIRECTORY: ${path}`);
       node.content = content;
       this.versionCounter++;
+      this.scheduleSave();
       return;
     }
     const parent = this.get(parentPath(path));
@@ -147,6 +151,7 @@ export class VirtualFS {
     parent.children.push(child);
     this.index.set(child.path, child);
     this.versionCounter++;
+    this.scheduleSave();
   }
 
   mkdir(path: string, recursive = true): void {
@@ -168,6 +173,7 @@ export class VirtualFS {
     parent.children.push(child);
     this.index.set(child.path, child);
     this.versionCounter++;
+    this.scheduleSave();
   }
 
   rm(path: string): void {
@@ -183,6 +189,34 @@ export class VirtualFS {
     };
     removeSubtree(node);
     this.versionCounter++;
+    this.scheduleSave();
+  }
+
+  rename(oldPath: string, newName: string): void {
+    const node = this.get(oldPath);
+    if (!node || node.path === '/') throw new Error(`CANNOT_RENAME: ${oldPath}`);
+    
+    // Ensure new path doesn't already exist
+    const parentPathStr = parentPath(oldPath);
+    const newPath = join(parentPathStr, newName);
+    if (this.exists(newPath)) throw new Error(`ALREADY_EXISTS: ${newPath}`);
+
+    // Update node
+    node.name = newName;
+    node.path = newPath;
+
+    // We must rebuild the paths for all children
+    const updatePaths = (n: FSNode, parentP: string) => {
+      n.path = join(parentP, n.name);
+      n.children.forEach(c => updatePaths(c, n.path));
+    };
+    node.children.forEach(c => updatePaths(c, node.path));
+
+    // Reindex everything to be safe
+    this.reindex();
+    
+    this.versionCounter++;
+    this.scheduleSave();
   }
 
   find(query: string, limit = 100): FSNode[] {
@@ -245,6 +279,64 @@ export class VirtualFS {
       }
     });
     return out;
+  }
+
+  // --- Persistence ---
+
+  private scheduleSave(): void {
+    if (this.saveTimeout) clearTimeout(this.saveTimeout);
+    this.saveTimeout = window.setTimeout(() => this.saveState(), 500);
+  }
+
+  private async getDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.dbName, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(this.storeName);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async saveState(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        
+        // Strip circular references/unnecessary data for storage if any, 
+        // though FSNode doesn't have parent links.
+        store.put(this.root, 'root');
+        
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (err) {
+      console.warn('[HARE VFS] Failed to save state', err);
+    }
+  }
+
+  async restoreState(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const rootNode = await new Promise<FSNode | undefined>((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const req = store.get('root');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      if (rootNode) {
+        this.root = rootNode;
+        this.reindex();
+        console.log('[HARE VFS] Restored state from IndexedDB');
+      }
+    } catch (err) {
+      console.warn('[HARE VFS] Failed to restore state', err);
+    }
   }
 }
 

@@ -1,0 +1,1 @@
+export const CORE_CMDS = new Set(['version', 'uname', 'whoami', 'echo', 'ident', 'fnv']);

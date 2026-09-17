@@ -16,7 +16,7 @@ function seedProcs(): Proc[] {
     { pid: 3, name: 'shell', cpu: '1.9', mem: '22MB', state: 'S' },
     { pid: 4, name: 'vfsd', cpu: '0.4', mem: '9MB', state: 'S' },
     { pid: 5, name: 'npm run dev', cpu: '14.2', mem: '160MB', state: 'R' },
-    { pid: 6, name: 'harc (WASM)', cpu: '5.6', mem: '64MB', state: 'R' },
+    { pid: 6, name: 'kernel.wasm', cpu: '5.6', mem: '64MB', state: 'R' },
     { pid: 7, name: 'tx-bridge', cpu: '1.2', mem: '18MB', state: 'S' },
   ];
 }
@@ -58,6 +58,12 @@ export function MonitorApp() {
           <span className="gauge-label">UPTIME</span>
           <span className="gauge-val gauge-up">{kernel.uptime}</span>
         </div>
+      </div>
+
+      <div className="monitor-engines">
+        {kernel.engines.map((e) => (
+          <span key={e} className={`engine-chip ${e}`}>{e}</span>
+        ))}
       </div>
 
       <table className="proc-table">

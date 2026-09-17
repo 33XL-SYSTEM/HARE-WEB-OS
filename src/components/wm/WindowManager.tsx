@@ -6,8 +6,9 @@ import {
   createContext,
   type ReactNode,
 } from 'react';
+import { kernel } from '../../kernel/HareBridge';
 
-export type AppId = 'files' | 'code' | 'terminal' | 'settings' | 'monitor';
+export type AppId = 'files' | 'code' | 'terminal' | 'settings' | 'monitor' | 'browser' | 'store' | 'mail' | 'calendar' | 'calculator' | 'notes' | 'music' | 'video' | 'photos' | 'camera' | 'maps' | 'weather' | 'clock' | 'contacts' | 'messages' | 'tasks' | 'podcasts' | 'wallet' | 'health' | 'news' | 'recorder' | 'translate' | 'dictionary' | 'measure' | 'fitness' | 'books' | 'compass' | 'passwords' | 'home' | 'scanner' | 'paint';
 
 export interface WindowRect {
   x: number;
@@ -18,7 +19,9 @@ export interface WindowRect {
 
 export interface WindowState extends WindowRect {
   id: string;
+  pid: number;
   app: AppId;
+  workspace: number;
   title: string;
   minimized: boolean;
   maximized: boolean;
@@ -36,6 +39,9 @@ interface WindowManagerValue {
   windows: WindowState[];
   focusedId: string | null;
   activitiesOpen: boolean;
+  appGridOpen: boolean;
+  activeWorkspace: number;
+  totalWorkspaces: number;
   booted: boolean;
   setBooted: (b: boolean) => void;
   open: (app: AppId, options?: OpenOptions) => void;
@@ -46,6 +52,9 @@ interface WindowManagerValue {
   moveToFront: (id: string) => void;
   updateRect: (id: string, rect: Partial<WindowRect>) => void;
   setActivities: (open: boolean) => void;
+  setAppGridOpen: (open: boolean) => void;
+  setActiveWorkspace: (index: number) => void;
+  moveWindowToWorkspace: (id: string, workspace: number) => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerValue | null>(null);
@@ -59,13 +68,52 @@ const DEFAULT_GEOM: Record<AppId, WindowRect> = {
   terminal: { x: 200, y: 160, w: 620, h: 380 },
   settings: { x: 300, y: 150, w: 560, h: 420 },
   monitor: { x: 160, y: 100, w: 700, h: 440 },
+  browser: { x: 200, y: 150, w: 600, h: 400 },
+  store: { x: 200, y: 150, w: 600, h: 400 },
+  mail: { x: 200, y: 150, w: 600, h: 400 },
+  calendar: { x: 200, y: 150, w: 600, h: 400 },
+  calculator: { x: 200, y: 150, w: 600, h: 400 },
+  notes: { x: 200, y: 150, w: 600, h: 400 },
+  music: { x: 200, y: 150, w: 600, h: 400 },
+  video: { x: 200, y: 150, w: 600, h: 400 },
+  photos: { x: 200, y: 150, w: 600, h: 400 },
+  camera: { x: 200, y: 150, w: 600, h: 400 },
+  maps: { x: 200, y: 150, w: 600, h: 400 },
+  weather: { x: 200, y: 150, w: 600, h: 400 },
+  clock: { x: 200, y: 150, w: 600, h: 400 },
+  contacts: { x: 200, y: 150, w: 600, h: 400 },
+  messages: { x: 200, y: 150, w: 600, h: 400 },
+  tasks: { x: 200, y: 150, w: 600, h: 400 },
+  podcasts: { x: 200, y: 150, w: 600, h: 400 },
+  wallet: { x: 200, y: 150, w: 600, h: 400 },
+  health: { x: 200, y: 150, w: 600, h: 400 },
+  news: { x: 200, y: 150, w: 600, h: 400 },
+  recorder: { x: 200, y: 150, w: 600, h: 400 },
+  translate: { x: 200, y: 150, w: 600, h: 400 },
+  dictionary: { x: 200, y: 150, w: 600, h: 400 },
+  measure: { x: 200, y: 150, w: 600, h: 400 },
+  fitness: { x: 200, y: 150, w: 600, h: 400 },
+  books: { x: 200, y: 150, w: 600, h: 400 },
+  compass: { x: 200, y: 150, w: 600, h: 400 },
+  passwords: { x: 200, y: 150, w: 600, h: 400 },
+  home: { x: 200, y: 150, w: 600, h: 400 },
+  scanner: { x: 200, y: 150, w: 600, h: 400 },
+  paint: { x: 200, y: 150, w: 600, h: 400 },
 };
 
 export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const [activitiesOpen, setActivities] = useState(false);
+  const [appGridOpen, setAppGridOpen] = useState(false);
   const [booted, setBooted] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState(0);
+
+  // Dynamic total workspaces: always one more than the max workspace index currently in use, or active.
+  const totalWorkspaces = Math.max(
+    activeWorkspace,
+    windows.length > 0 ? Math.max(...windows.map(w => w.workspace)) : 0
+  ) + 2; // +2 because 0-indexed, so max index 0 means 1 workspace, and we want 1 empty at the end, so 2.
 
   const open = useCallback((app: AppId, options?: OpenOptions) => {
     setWindows((prev) => {
@@ -88,10 +136,13 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         );
       }
 
+      const p = kernel.scheduler.spawn(app, kernel.cwd);
       const id = `win-${++idCounter}`;
       const win: WindowState = {
         id,
+        pid: p.pid,
         app,
+        workspace: activeWorkspace,
         title: options?.title ?? defaultTitle(app),
         ...rect,
         minimized: false,
@@ -102,10 +153,14 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       setFocusedId(id);
       return [...prev, win];
     });
-  }, []);
+  }, [activeWorkspace]);
 
   const close = useCallback((id: string) => {
-    setWindows((prev) => prev.filter((w) => w.id !== id));
+    setWindows((prev) => {
+      const win = prev.find((w) => w.id === id);
+      if (win) kernel.scheduler.kill(win.pid);
+      return prev.filter((w) => w.id !== id);
+    });
     setFocusedId((cur) => (cur === id ? null : cur));
   }, []);
 
@@ -142,20 +197,46 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, ...rect } : w)));
   }, []);
 
+  const moveWindowToWorkspace = useCallback((id: string, workspace: number) => {
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, workspace } : w)));
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && activitiesOpen) {
-        setActivitiesOpen(false);
+        if (appGridOpen) {
+          setAppGridOpen(false);
+        } else {
+          setActivities(false);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activitiesOpen]);
+  }, [activitiesOpen, appGridOpen]);
+
+  // Listen to kernel process kills
+  useEffect(() => {
+    const unsub = kernel.scheduler.onEvent((pid, event) => {
+      if (event === 'kill') {
+        setWindows((prev) => {
+          const win = prev.find((w) => w.pid === pid);
+          if (!win) return prev;
+          setFocusedId((cur) => (cur === win.id ? null : cur));
+          return prev.filter((w) => w.pid !== pid);
+        });
+      }
+    });
+    return unsub;
+  }, []);
 
   const value: WindowManagerValue = {
     windows,
     focusedId,
     activitiesOpen,
+    appGridOpen,
+    activeWorkspace,
+    totalWorkspaces,
     booted,
     setBooted,
     open,
@@ -165,12 +246,16 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     focus,
     moveToFront,
     updateRect,
-    setActivities: setActivitiesOpen,
+    setActivities,
+    setAppGridOpen,
+    setActiveWorkspace,
+    moveWindowToWorkspace,
   };
 
   return <WindowManagerContext.Provider value={value}>{children}</WindowManagerContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWindowManager(): WindowManagerValue {
   const ctx = useContext(WindowManagerContext);
   if (!ctx) throw new Error('useWindowManager must be used within WindowManagerProvider');
@@ -184,5 +269,36 @@ function defaultTitle(app: AppId): string {
     case 'terminal': return 'Terminal';
     case 'settings': return 'Settings';
     case 'monitor': return 'System Monitor';
+    case 'browser': return 'BROWSER';
+    case 'store': return 'STORE';
+    case 'mail': return 'MAIL';
+    case 'calendar': return 'CALENDAR';
+    case 'calculator': return 'CALCULATOR';
+    case 'notes': return 'NOTES';
+    case 'music': return 'MUSIC';
+    case 'video': return 'VIDEO';
+    case 'photos': return 'PHOTOS';
+    case 'camera': return 'CAMERA';
+    case 'maps': return 'MAPS';
+    case 'weather': return 'WEATHER';
+    case 'clock': return 'CLOCK';
+    case 'contacts': return 'CONTACTS';
+    case 'messages': return 'MESSAGES';
+    case 'tasks': return 'TASKS';
+    case 'podcasts': return 'PODCASTS';
+    case 'wallet': return 'WALLET';
+    case 'health': return 'HEALTH';
+    case 'news': return 'NEWS';
+    case 'recorder': return 'RECORDER';
+    case 'translate': return 'TRANSLATE';
+    case 'dictionary': return 'DICTIONARY';
+    case 'measure': return 'MEASURE';
+    case 'fitness': return 'FITNESS';
+    case 'books': return 'BOOKS';
+    case 'compass': return 'COMPASS';
+    case 'passwords': return 'PASSWORDS';
+    case 'home': return 'HOME';
+    case 'scanner': return 'SCANNER';
+    case 'paint': return 'PAINT';
   }
 }

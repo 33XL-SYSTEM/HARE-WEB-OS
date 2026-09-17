@@ -6,14 +6,31 @@ import {
   basename,
   parentPath,
 } from './vfs';
+import { createKernelHosts, type HostEngineId, type KernelHost } from './hosts';
+import { Scheduler } from './process';
 
-const WORKSPACE = '/workspace';
+const WORKSPACE = '/workspace/hare-user';
 
 const SEED: FSNodeInput[] = [
   {
     name: 'workspace',
     type: 'dir',
     children: [
+      {
+        name: 'hare-user',
+        type: 'dir',
+        children: [
+          { name: 'Área de trabalho', type: 'dir', children: [] },
+          { name: 'Documentos', type: 'dir', children: [] },
+          { name: 'Downloads', type: 'dir', children: [] },
+          { name: 'Imagens', type: 'dir', children: [] },
+          { name: 'Modelos', type: 'dir', children: [] },
+          { name: 'Músicas', type: 'dir', children: [] },
+          { name: 'Projetos', type: 'dir', children: [] },
+          { name: 'Público', type: 'dir', children: [] },
+          { name: 'Vídeos', type: 'dir', children: [] }
+        ]
+      },
       {
         name: 'hare-os',
         type: 'dir',
@@ -248,18 +265,38 @@ dist/
 export interface CommandResult {
   text: string;
   cwd?: string;
+  engine?: HostEngineId;
 }
 
 class HareBridge {
   private isInitializing = false;
   private isReady = false;
   readonly fs = new VirtualFS(SEED);
+  readonly scheduler = new Scheduler();
+  private readonly hostChain: KernelHost[] = createKernelHosts();
   private currentDir = WORKSPACE;
   private version = '0.1.0-alpha';
   private bootTime = Date.now();
 
   get ready(): boolean {
     return this.isReady;
+  }
+
+  get hosts(): readonly KernelHost[] {
+    return this.hostChain;
+  }
+
+  /** Live engines in priority order (native → wasm → js fallback). */
+  get engines(): HostEngineId[] {
+    return [
+      ...this.hostChain.filter((h) => h.available).map((h) => h.id),
+      'js',
+    ];
+  }
+
+  get platformLabel(): string {
+    const live = this.hostChain.filter((h) => h.available).map((h) => h.label);
+    return live.length ? `Hybrid · ${live.join(' → ')} → JS fallback` : 'Hybrid · JS fallback only';
   }
 
   get cwd(): string {
@@ -279,7 +316,21 @@ class HareBridge {
     if (this.isInitializing || this.isReady) return;
     this.isInitializing = true;
     try {
-      console.log('[HARE] initializing kernel bridge...');
+      console.log('[HARE] initializing hybrid kernel (native → wasm → js)...');
+      await this.fs.restoreState();
+      
+      // Ensure home directory and standard folders exist
+      if (!this.fs.exists(WORKSPACE)) {
+        this.fs.mkdir(WORKSPACE, true);
+      }
+      ['Área de trabalho', 'Documentos', 'Downloads', 'Imagens', 'Modelos', 'Músicas', 'Projetos', 'Público', 'Vídeos'].forEach(dir => {
+        if (!this.fs.exists(`${WORKSPACE}/${dir}`)) {
+          this.fs.mkdir(`${WORKSPACE}/${dir}`, true);
+        }
+      });
+
+      await Promise.all(this.hostChain.map((h) => h.init()));
+      console.log(`[HARE] engines live: ${this.engines.join(' + ')}`);
       await new Promise((r) => setTimeout(r, 600));
       this.isReady = true;
     } catch (e) {
@@ -324,7 +375,13 @@ class HareBridge {
   }
 
   deletePath(path: string): void {
-    this.fs.rm(this.resolvePath(path));
+    const full = normalizePath(path, this.currentDir);
+    this.fs.rm(full);
+  }
+
+  renamePath(oldPath: string, newName: string): void {
+    const full = normalizePath(oldPath, this.currentDir);
+    this.fs.rename(full, newName);
   }
 
   async executeCommand(raw: string): Promise<CommandResult> {
@@ -337,9 +394,43 @@ class HareBridge {
     const arg = rest.join(' ').trim();
     const name = head!.toLowerCase();
 
+    for (const host of this.hostChain) {
+      if (!host.available || !host.supports(name)) continue;
+      try {
+        const out = await host.execute(cmd);
+        if (out !== null && out !== undefined) {
+          return { text: out, engine: host.id };
+        }
+      } catch (err) {
+        console.warn(`[HARE] ${host.id} host failed for '${cmd}'`, err);
+      }
+    }
+
     switch (name) {
       case 'uname':
-        return { text: `HARE-OS kernel ${this.version} (Hare WASM mock)` };
+        return { text: `HARE-OS kernel ${this.version} (JS fallback)` };
+      case 'ps': {
+        const procs = this.scheduler.list();
+        if (procs.length === 0) return { text: 'PID   STATE     MEM      CMD' };
+        
+        const lines = ['PID   STATE     MEM      CMD'];
+        for (const p of procs) {
+          const mem = (p.memory / 1024).toFixed(1) + 'M';
+          lines.push(`${p.pid.toString().padEnd(5)} ${p.state.padEnd(9)} ${mem.padEnd(8)} ${p.name}`);
+        }
+        return { text: lines.join('\n') };
+      }
+      case 'kill': {
+        if (!arg) return { text: 'usage: kill <pid>' };
+        const pid = parseInt(arg, 10);
+        if (isNaN(pid)) return { text: `kill: invalid pid: ${arg}` };
+        
+        if (this.scheduler.kill(pid)) {
+          return { text: `process ${pid} terminated` };
+        } else {
+          return { text: `kill: no such process: ${pid}` };
+        }
+      }
       case 'date': {
         const d = new Date();
         return { text: d.toISOString() };
@@ -424,10 +515,11 @@ class HareBridge {
       case 'help':
         return {
           text: [
+            `Hybrid kernel engines: ${this.engines.join(' + ')}`,
             'Available commands:',
-            '  uname, date, uptime, version, echo, whoami',
-            '  ls, tree, cd, pwd, cat, head, touch, mkdir, rm, find, stat',
-            '  help, clear',
+            '  version, uname, ident, whoami, echo, fnv (core)',
+            '  date, uptime, ls, tree, cd, pwd, cat, head, touch, mkdir, rm, find, stat',
+            '  ps, kill, open, edit, help, clear',
           ].join('\n'),
         };
       default:
