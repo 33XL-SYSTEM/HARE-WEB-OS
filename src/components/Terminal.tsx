@@ -26,6 +26,24 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
   const idRef = useRef(0);
   const pidRef = useRef<number | null>(null);
 
+  const push = (
+    lines: string[],
+    isCommand: boolean,
+    commandCwd = cwd,
+    engine?: HostEngineId,
+  ) => {
+    setHistory((prev) => [
+      ...prev,
+      ...lines.map((content) => ({
+        id: ++idRef.current,
+        content,
+        isCommand,
+        cwd: commandCwd,
+        engine,
+      })),
+    ]);
+  };
+
   useEffect(() => {
     pidRef.current = activePid;
   }, [activePid]);
@@ -70,24 +88,6 @@ export function Terminal({ ready, onCwdChange, onOpenFile }: TerminalProps) {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history]);
-
-  const push = (
-    lines: string[],
-    isCommand: boolean,
-    commandCwd = cwd,
-    engine?: HostEngineId,
-  ) => {
-    setHistory((prev) => [
-      ...prev,
-      ...lines.map((content) => ({
-        id: ++idRef.current,
-        content,
-        isCommand,
-        cwd: commandCwd,
-        engine,
-      })),
-    ]);
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.ctrlKey && e.key === 'c') {

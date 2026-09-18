@@ -21,7 +21,7 @@ function hareProxyPlugin(): Plugin {
         let parsedUrl;
         try {
           parsedUrl = new URL(targetUrl);
-        } catch (e) {
+        } catch {
           res.statusCode = 400;
           res.end('Invalid URL');
           return;

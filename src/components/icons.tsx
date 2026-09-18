@@ -458,3 +458,30 @@ export const TrymonIcon = (props: IconProps) => (
     <circle cx="12" cy="15" r="4"/>
   </svg>
 );
+
+export const BluetoothIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M6.5 6.5l11 11-5.5 5.5v-22l5.5 5.5-11 11" />
+  </svg>
+);
+
+export const VolumeIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+  </svg>
+);
+
+export const SunIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <circle cx="12" cy="12" r="5" />
+    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+  </svg>
+);
+
+export const MoonIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  </svg>
+);

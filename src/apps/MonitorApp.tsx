@@ -3,15 +3,13 @@ import { kernel } from '../kernel/HareBridge';
 import type { Process } from '../kernel/process';
 
 export function MonitorApp() {
-  const [procs, setProcs] = useState<Process[]>([]);
+  const [procs, setProcs] = useState<Process[]>(() => kernel.scheduler.list());
   const [cpu, setCpu] = useState(0);
   const [mem, setMem] = useState(0);
   const [uptime, setUptime] = useState(kernel.uptime);
+  const [cpuMap, setCpuMap] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    // Initial fetch
-    setProcs(kernel.scheduler.list());
-
     const unsub = kernel.scheduler.onEvent(() => {
       setProcs(kernel.scheduler.list());
     });
@@ -32,6 +30,15 @@ export function MonitorApp() {
       let activeCount = ps.filter(p => p.state === 'RUNNING').length;
       let cpuPct = Math.min(100, activeCount * 5 + Math.floor(Math.random() * 10)); 
       setCpu(Math.max(1, cpuPct));
+
+      const newCpuMap: Record<number, string> = {};
+      for (const p of ps) {
+        if (p.state !== 'RUNNING') newCpuMap[p.pid] = '0.0';
+        else if (p.name.includes('code')) newCpuMap[p.pid] = (Math.random() * 5 + 1).toFixed(1);
+        else if (p.name.includes('terminal')) newCpuMap[p.pid] = (Math.random() * 3).toFixed(1);
+        else newCpuMap[p.pid] = (Math.random() * 2).toFixed(1);
+      }
+      setCpuMap(newCpuMap);
     }, 1000);
 
     return () => {
@@ -47,10 +54,7 @@ export function MonitorApp() {
   };
   
   const getSimulatedCpu = (p: Process) => {
-    if (p.state !== 'RUNNING') return '0.0';
-    if (p.name.includes('code')) return (Math.random() * 5 + 1).toFixed(1);
-    if (p.name.includes('terminal')) return (Math.random() * 3).toFixed(1);
-    return (Math.random() * 2).toFixed(1);
+    return cpuMap[p.pid] || '0.0';
   };
 
   return (

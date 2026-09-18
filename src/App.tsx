@@ -1,5 +1,6 @@
 import './App.css';
 import { WindowManagerProvider, useWindowManager, type AppId, type WindowState } from './components/wm/WindowManager';
+import { ContextMenuProvider, useContextMenu } from './components/os/ContextMenu';
 import { AppWindow } from './components/wm/AppWindow';
 import { TopBar } from './components/os/TopBar';
 import { Dock } from './components/os/Dock';
@@ -58,7 +59,7 @@ function WindowContent({ win }: { win: WindowState }) {
     case 'terminal':
       return <TerminalApp onCwdChange={() => 0} onOpenFile={(path) => open('code', { data: path })} />;
     case 'settings':
-      return <SettingsApp />;
+      return <SettingsApp win={win} />;
     case 'monitor':
       return <MonitorApp />;
     case 'browser':
@@ -140,8 +141,12 @@ function Desktop() {
     activeWorkspace, 
     totalWorkspaces,
     setActiveWorkspace,
-    moveWindowToWorkspace
+    moveWindowToWorkspace,
+    open,
+    wallpaper,
+    globalBrightness
   } = useWindowManager();
+  const { showContextMenu } = useContextMenu();
 
   if (!booted) {
     return <BootScreen onDone={() => setBooted(true)} />;
@@ -168,7 +173,27 @@ function Desktop() {
   };
 
   return (
-    <div className="os-desktop">
+    <div 
+      className="os-desktop"
+      style={{
+        ...(wallpaper ? { backgroundImage: `url('${wallpaper}')` } : {}),
+        filter: `brightness(${30 + (globalBrightness * 0.7)}%)`
+      }}
+      onContextMenu={(e) => {
+        // Prevent default browser menu
+        e.preventDefault();
+        // Show our generic context menu
+        showContextMenu(e, [
+          { label: 'Change Background', onClick: () => open('settings', { data: { tab: 'wallpaper' } }) },
+          { label: 'Display Settings', onClick: () => open('settings') },
+          { divider: true },
+          { label: 'Personalize Interface', onClick: () => open('settings', { data: { tab: 'wallpaper' } }) },
+          { label: 'System Settings', onClick: () => open('settings') },
+          { divider: true },
+          { label: 'Terminal', onClick: () => open('terminal') },
+        ]);
+      }}
+    >
       <TopBar />
       <main className={`desktop-area ${activitiesOpen ? 'overview-active' : ''}`} onClick={() => setActivities(false)}>
         <div className="workspace-track" style={trackStyle}>
@@ -176,6 +201,7 @@ function Desktop() {
             <div 
               key={idx} 
               className="workspace-container"
+              style={wallpaper ? { backgroundImage: `url('${wallpaper}')`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
               onClick={(e) => {
                 if (activitiesOpen) {
                   e.stopPropagation();
@@ -189,16 +215,16 @@ function Desktop() {
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, idx)}
             >
+              {!wallpaper && (
+                <div className="desktop-empty">
+                  <img src="/icon.png" alt="Hare Mascot" className="desktop-empty-mascot" />
+                </div>
+              )}
               {windows.filter(w => w.workspace === idx).map((win) => (
                 <AppWindow key={win.id} win={win} icon={appIcon(win.app)}>
                   <WindowContent win={win} />
                 </AppWindow>
               ))}
-              {windows.filter(w => w.workspace === idx).length === 0 && (
-                <div className="desktop-empty">
-                  <img src="/icon.png" alt="Hare Mascot" className="desktop-empty-mascot" />
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -211,8 +237,10 @@ function Desktop() {
 
 export default function App() {
   return (
-    <WindowManagerProvider>
-      <Desktop />
-    </WindowManagerProvider>
+    <ContextMenuProvider>
+      <WindowManagerProvider>
+        <Desktop />
+      </WindowManagerProvider>
+    </ContextMenuProvider>
   );
 }

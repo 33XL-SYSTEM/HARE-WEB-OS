@@ -59,7 +59,7 @@ export function BrowserApp() {
   const reload = () => {
     if (iframeRef.current) {
       // Small hack to force iframe reload by resetting src
-      iframeRef.current.src = iframeRef.current.src;
+      iframeRef.current.src += '';
       setIsLoading(true);
     }
   };

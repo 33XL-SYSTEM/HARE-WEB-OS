@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useWindowManager } from '../wm/WindowManager';
 import { LayoutIcon, WifiIcon, PowerIcon, UserIcon } from '../icons';
+import { QuickSettings } from './QuickSettings';
 
 export function TopBar() {
   const { setActivities, windows, focusedId } = useWindowManager();
   const [time, setTime] = useState(() => new Date());
+  const [qsOpen, setQsOpen] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
@@ -12,7 +14,6 @@ export function TopBar() {
   }, []);
 
   const focused = windows.find((w) => w.id === focusedId);
-  const running = windows.filter((w) => !w.minimized).length;
   const hh = String(time.getHours()).padStart(2, '0');
   const mm = String(time.getMinutes()).padStart(2, '0');
 
@@ -33,18 +34,14 @@ export function TopBar() {
       </div>
 
       <div className="topbar-right">
-        <span className="topbar-chip" title="Network (mock)">
-          <WifiIcon width={13} height={13} />
-        </span>
-        <span className="topbar-chip" title="Power">
-          <PowerIcon width={13} height={13} />
-        </span>
-        <span className="topbar-chip topbar-user" title="hare_admin">
-          <UserIcon width={13} height={13} />
-          <span>HARE</span>
-        </span>
-        <span className="topbar-running" title="Running windows">{running} WIN</span>
+        <button className="topbar-btn topbar-qs-btn" onClick={() => setQsOpen(!qsOpen)} title="Quick Settings">
+          <WifiIcon width={14} height={14} />
+          <PowerIcon width={14} height={14} />
+          <UserIcon width={14} height={14} />
+        </button>
       </div>
+
+      {qsOpen && <QuickSettings onClose={() => setQsOpen(false)} />}
     </header>
   );
 }

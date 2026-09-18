@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useWindowManager } from '../wm/WindowManager';
+import { useWindowManager, type AppId } from '../wm/WindowManager';
+import { useContextMenu } from './ContextMenu';
 import { APP_REGISTRY } from '../appRegistry';
 import { SearchIcon } from '../icons';
 
@@ -9,15 +10,19 @@ export function Overview() {
     setActivities, 
     open, 
     appGridOpen,
-    setAppGridOpen
+    setAppGridOpen,
+    pinnedApps,
+    togglePinnedApp
   } = useWindowManager();
+  const { showContextMenu } = useContextMenu();
   const [query, setQuery] = useState('');
 
   const filteredApps = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return APP_REGISTRY;
-    return APP_REGISTRY.filter((a) => a.name.toLowerCase().includes(q));
-  }, [query]);
+    const unpinned = APP_REGISTRY.filter((a) => !pinnedApps.includes(a.id as AppId));
+    if (!q) return unpinned;
+    return unpinned.filter((a) => a.name.toLowerCase().includes(q));
+  }, [query, pinnedApps]);
 
   if (!activitiesOpen) return null;
 
@@ -50,10 +55,23 @@ export function Overview() {
                 <button
                   key={a.id}
                   className="overview-app"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/x-hare-app', a.id);
+                    e.dataTransfer.effectAllowed = 'copyMove';
+                  }}
                   onClick={() => {
-                    open(a.id);
+                    open(a.id as AppId);
                     setAppGridOpen(false);
                     close();
+                  }}
+                  onContextMenu={(e) => {
+                    showContextMenu(e, [
+                      {
+                        label: pinnedApps.includes(a.id as AppId) ? 'Unpin from Dock' : 'Pin to Dock',
+                        onClick: () => togglePinnedApp(a.id as AppId)
+                      }
+                    ]);
                   }}
                 >
                   <span className="overview-app-icon">{a.icon}</span>

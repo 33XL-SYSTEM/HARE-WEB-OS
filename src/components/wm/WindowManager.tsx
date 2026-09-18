@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   useCallback,
   useContext,
@@ -46,6 +47,11 @@ interface WindowManagerValue {
   activeWorkspace: number;
   totalWorkspaces: number;
   booted: boolean;
+  pinnedApps: AppId[];
+  wallpaper: string | null;
+  customWallpapers: string[];
+  globalBrightness: number;
+  setGlobalBrightness: (val: number) => void;
   setBooted: (b: boolean) => void;
   open: (app: AppId, options?: OpenOptions) => void;
   close: (id: string) => void;
@@ -58,6 +64,10 @@ interface WindowManagerValue {
   setAppGridOpen: (open: boolean) => void;
   setActiveWorkspace: (index: number) => void;
   moveWindowToWorkspace: (id: string, workspace: number) => void;
+  togglePinnedApp: (id: AppId) => void;
+  setWallpaper: (url: string | null) => void;
+  addWallpaper: (url: string) => void;
+  removeWallpaper: (url: string) => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerValue | null>(null);
@@ -66,43 +76,43 @@ let zCounter = 100;
 let idCounter = 0;
 
 const DEFAULT_GEOM: Record<AppId, WindowRect> = {
-  files: { x: 90, y: 90, w: 640, h: 460 },
-  code: { x: 130, y: 60, w: 820, h: 540 },
-  terminal: { x: 200, y: 160, w: 620, h: 380 },
-  settings: { x: 300, y: 150, w: 560, h: 420 },
-  monitor: { x: 160, y: 100, w: 700, h: 440 },
-  browser: { x: 200, y: 150, w: 600, h: 400 },
-  store: { x: 200, y: 150, w: 600, h: 400 },
-  mail: { x: 200, y: 150, w: 600, h: 400 },
-  calendar: { x: 200, y: 150, w: 600, h: 400 },
-  calculator: { x: 200, y: 150, w: 600, h: 400 },
-  notes: { x: 200, y: 150, w: 600, h: 400 },
-  music: { x: 200, y: 150, w: 600, h: 400 },
-  video: { x: 200, y: 150, w: 600, h: 400 },
-  photos: { x: 200, y: 150, w: 600, h: 400 },
-  camera: { x: 200, y: 150, w: 600, h: 400 },
-  maps: { x: 200, y: 150, w: 600, h: 400 },
-  weather: { x: 200, y: 150, w: 600, h: 400 },
-  clock: { x: 200, y: 150, w: 600, h: 400 },
-  contacts: { x: 200, y: 150, w: 600, h: 400 },
-  messages: { x: 200, y: 150, w: 600, h: 400 },
-  tasks: { x: 200, y: 150, w: 600, h: 400 },
-  podcasts: { x: 200, y: 150, w: 600, h: 400 },
-  wallet: { x: 200, y: 150, w: 600, h: 400 },
-  health: { x: 200, y: 150, w: 600, h: 400 },
-  news: { x: 200, y: 150, w: 600, h: 400 },
-  recorder: { x: 200, y: 150, w: 600, h: 400 },
-  translate: { x: 200, y: 150, w: 600, h: 400 },
-  dictionary: { x: 200, y: 150, w: 600, h: 400 },
-  measure: { x: 200, y: 150, w: 600, h: 400 },
-  fitness: { x: 200, y: 150, w: 600, h: 400 },
-  books: { x: 200, y: 150, w: 600, h: 400 },
-  compass: { x: 200, y: 150, w: 600, h: 400 },
-  passwords: { x: 200, y: 150, w: 600, h: 400 },
-  home: { x: 200, y: 150, w: 600, h: 400 },
-  scanner: { x: 200, y: 150, w: 600, h: 400 },
-  paint: { x: 200, y: 150, w: 600, h: 400 },
-  trymon: { x: 100, y: 100, w: 800, h: 500 },
+  files: { x: 450, y: 80, w: 1000, h: 700 },
+  code: { x: 400, y: 60, w: 1100, h: 750 },
+  terminal: { x: 450, y: 80, w: 1000, h: 700 },
+  settings: { x: 500, y: 100, w: 900, h: 600 },
+  monitor: { x: 450, y: 80, w: 1000, h: 700 },
+  browser: { x: 400, y: 60, w: 1100, h: 750 },
+  store: { x: 450, y: 80, w: 1000, h: 700 },
+  mail: { x: 450, y: 80, w: 1000, h: 700 },
+  calendar: { x: 500, y: 100, w: 900, h: 600 },
+  calculator: { x: 650, y: 150, w: 600, h: 500 },
+  notes: { x: 500, y: 100, w: 900, h: 600 },
+  music: { x: 500, y: 100, w: 900, h: 600 },
+  video: { x: 450, y: 80, w: 1000, h: 700 },
+  photos: { x: 450, y: 80, w: 1000, h: 700 },
+  camera: { x: 450, y: 80, w: 1000, h: 700 },
+  maps: { x: 400, y: 60, w: 1100, h: 750 },
+  weather: { x: 500, y: 100, w: 900, h: 600 },
+  clock: { x: 650, y: 150, w: 600, h: 500 },
+  contacts: { x: 500, y: 100, w: 900, h: 600 },
+  messages: { x: 500, y: 100, w: 900, h: 600 },
+  tasks: { x: 500, y: 100, w: 900, h: 600 },
+  podcasts: { x: 500, y: 100, w: 900, h: 600 },
+  wallet: { x: 500, y: 100, w: 900, h: 600 },
+  health: { x: 500, y: 100, w: 900, h: 600 },
+  news: { x: 450, y: 80, w: 1000, h: 700 },
+  recorder: { x: 650, y: 150, w: 600, h: 500 },
+  translate: { x: 500, y: 100, w: 900, h: 600 },
+  dictionary: { x: 500, y: 100, w: 900, h: 600 },
+  measure: { x: 650, y: 150, w: 600, h: 500 },
+  fitness: { x: 500, y: 100, w: 900, h: 600 },
+  books: { x: 450, y: 80, w: 1000, h: 700 },
+  compass: { x: 650, y: 150, w: 600, h: 500 },
+  passwords: { x: 500, y: 100, w: 900, h: 600 },
+  home: { x: 450, y: 80, w: 1000, h: 700 },
+  scanner: { x: 500, y: 100, w: 900, h: 600 },
+  paint: { x: 400, y: 60, w: 1100, h: 750 },
+  trymon: { x: 450, y: 80, w: 1000, h: 700 },
 };
 
 export function WindowManagerProvider({ children }: { children: ReactNode }) {
@@ -112,6 +122,81 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [appGridOpen, setAppGridOpen] = useState(false);
   const [booted, setBooted] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState(0);
+  const [pinnedApps, setPinnedApps] = useState<AppId[]>(() => {
+    try {
+      const saved = localStorage.getItem('hare-os-pinned-apps');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['files', 'code', 'terminal', 'settings', 'monitor'];
+  });
+  const [wallpaper, setWallpaperState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('hare-os-wallpaper') || null;
+    } catch {}
+    return null;
+  });
+  const [customWallpapers, setCustomWallpapers] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('hare-os-custom-wallpapers');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const [globalBrightness, setGlobalBrightness] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('hare-os-brightness');
+      if (saved) return parseInt(saved, 10);
+    } catch {}
+    return 100;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hare-os-brightness', String(globalBrightness));
+    } catch {}
+  }, [globalBrightness]);
+
+  const togglePinnedApp = useCallback((id: AppId) => {
+    setPinnedApps((prev) => {
+      const next = prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id];
+      try {
+        localStorage.setItem('hare-os-pinned-apps', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const setWallpaper = useCallback((url: string | null) => {
+    setWallpaperState(url);
+    try {
+      if (url) localStorage.setItem('hare-os-wallpaper', url);
+      else localStorage.removeItem('hare-os-wallpaper');
+    } catch {}
+  }, []);
+
+  const addWallpaper = useCallback((url: string) => {
+    setCustomWallpapers((prev) => {
+      if (prev.includes(url)) return prev;
+      const next = [...prev, url];
+      try {
+        localStorage.setItem('hare-os-custom-wallpapers', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const removeWallpaper = useCallback((url: string) => {
+    setCustomWallpapers((prev) => {
+      const next = prev.filter((w) => w !== url);
+      try {
+        localStorage.setItem('hare-os-custom-wallpapers', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (wallpaper === url) {
+      setWallpaper(null);
+    }
+  }, [wallpaper, setWallpaper]);
 
   // Dynamic total workspaces: always one more than the max workspace index currently in use, or active.
   const totalWorkspaces = Math.max(
@@ -242,6 +327,11 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     activeWorkspace,
     totalWorkspaces,
     booted,
+    pinnedApps,
+    wallpaper,
+    customWallpapers,
+    globalBrightness,
+    setGlobalBrightness,
     setBooted,
     open,
     close,
@@ -254,6 +344,10 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     setAppGridOpen,
     setActiveWorkspace,
     moveWindowToWorkspace,
+    togglePinnedApp,
+    setWallpaper,
+    addWallpaper,
+    removeWallpaper,
   };
 
   return <WindowManagerContext.Provider value={value}>{children}</WindowManagerContext.Provider>;
