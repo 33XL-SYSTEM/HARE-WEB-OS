@@ -6,9 +6,9 @@
 
 **[ Leia em Português abaixo / Read in Portuguese below ]**
 
-HARE WEB OS is a fork of Bunny OS, deeply re-engineered as a modern, high-tech Web Operating System that aims to bring a premium, native desktop experience directly into the browser. 
+HARE WEB OS is an independent, deeply engineered modern, high-tech Web Operating System that aims to bring a premium, native desktop experience directly into the browser. 
 
-We have adopted the **Hare** programming language for the kernel to complete the rhyme (replacing Python) alongside a cutting-edge **TypeScript / React** graphical user interface.
+We have adopted the **Hare** programming language for the kernel alongside a cutting-edge **TypeScript / React** graphical user interface.
 
 ---
 
@@ -74,9 +74,9 @@ npm run dev
 
 # HARE WEB OS
 
-O HARE WEB OS é um fork do Bunny OS, profundamente reescrito e reprojetado para ser um Sistema Operacional Web moderno e de alta tecnologia, com o objetivo de trazer uma experiência de desktop nativa e premium diretamente para o seu navegador.
+O HARE WEB OS é um projeto independente, profundamente projetado para ser um Sistema Operacional Web moderno e de alta tecnologia, com o objetivo de trazer uma experiência de desktop nativa e premium diretamente para o seu navegador, construído do zero.
 
-Adotamos a linguagem de programação **Hare** para o kernel (substituindo o Python para completar a rima com "Bunny"), trabalhando em conjunto com uma interface gráfica de ponta feita em **TypeScript / React**.
+Adotamos a linguagem de programação **Hare** para o kernel, trabalhando em conjunto com uma interface gráfica de ponta feita em **TypeScript / React**.
 
 ---
 

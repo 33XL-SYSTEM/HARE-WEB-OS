@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "npm run kernel:all",
     "dev": "vite",
-    "prebuild": "if [ \"$VERCEL\" = \"1\" ]; then dnf install -y clang; fi && npm run kernel:all",
+    "prebuild": "if [ \"$VERCEL\" = \"1\" ]; then dnf install -y clang lld || yum install -y clang lld || true; fi && npm run kernel:all",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
